@@ -24,7 +24,11 @@ export const cdc = (rule) => (s) => s // eslint-disable-line import/prefer-defau
   .map(toEvent(rule))
   .parallel(rule.parallel || Number(process.env.PARALLEL) || 4)
 
-  .through(encryptEvent(rule))
+  .through(encryptEvent({
+    sourceField: rule.eventField || 'event',
+    targetField: rule.eventField || 'event',
+    ...rule,
+  }))
   .through(rule.publish(rule))
 
   .tap(printEndPipeline);
@@ -50,12 +54,16 @@ const toGetRequest = (rule) => faulty((uow) => ({
       : undefined,
 }));
 
-const toEvent = (rule) => faultyAsyncStream(async (uow) => (!rule.toEvent
-  ? uow
-  : ({
-    ...uow,
-    event: {
-      ...uow.event,
-      ...await faultify(rule.toEvent)(uow, rule),
-    },
-  })));
+const toEvent = (rule) => faultyAsyncStream(async (uow) => (!rule.toEvent // eslint-disable-line no-nested-ternary
+  ? uow : typeof rule.eventField === 'string' && rule.eventField !== 'event'
+    ? ({
+      ...uow,
+      [rule.eventField]: await faultify(rule.toEvent)(uow, rule),
+    })
+    : ({
+      ...uow,
+      event: {
+        ...uow.event,
+        ...await faultify(rule.toEvent)(uow, rule),
+      },
+    })));
