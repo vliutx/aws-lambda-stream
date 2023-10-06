@@ -55,15 +55,10 @@ const toGetRequest = (rule) => faulty((uow) => ({
 }));
 
 const toEvent = (rule) => faultyAsyncStream(async (uow) => (!rule.toEvent // eslint-disable-line no-nested-ternary
-  ? uow : typeof rule.eventField === 'string' && rule.eventField !== 'event'
-    ? ({
-      ...uow,
-      [rule.eventField]: await faultify(rule.toEvent)(uow, rule),
-    })
-    : ({
-      ...uow,
-      event: {
-        ...uow.event,
-        ...await faultify(rule.toEvent)(uow, rule),
-      },
-    })));
+  ? uow : ({
+    ...uow,
+    [rule.eventField || 'event']: ({
+      ...(!rule.eventField && uow.event),
+      ...await faultify(rule.toEvent)(uow, rule),
+    }),
+  })));
